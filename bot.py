@@ -1,14 +1,15 @@
+import os
+import threading
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# CONFIGURATION
-BOT_TOKEN = "7547000913:AAHGQNzoUHR2bqKOFJn5AHuNPaqAHd-JqSs"
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "7547000913:AAHGQNzoUHR2bqKOFJn5AHuNPaqAHd-JqSs")
 ADMIN_ID = 1999452367
 CHANNEL_USERNAME = "@LootLeloDeals"
-AMAZON_TAG = "yourtag-21"  # Replace this with your actual Amazon affiliate tag
-FLIPKART_TAG = "yourtag"   # Replace this with your Flipkart affiliate tag
+AMAZON_TAG = "yourtag-21"
+FLIPKART_TAG = "yourtag"
 
-# AFFILIATE LINK CONVERTER
 def convert_link(link: str) -> str:
     if "amazon." in link and "tag=" not in link:
         return f"{link}&tag={AMAZON_TAG}" if "?" in link else f"{link}?tag={AMAZON_TAG}"
@@ -23,14 +24,14 @@ def extract_link(text: str) -> str:
     return None
 
 def format_message(text: str, category: str) -> str:
-    return f"""🔥 **{category} Deal Alert!**
+    return f"""
+🔥 **{category} Deal Alert!**
 
 {text}
 
 ⏳ Hurry before it's gone!
 """.strip()
 
-# COMMAND HANDLERS
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to **LootLelo Bot**!\nUse /adddeal or /electronics to post.", parse_mode="Markdown")
 
@@ -51,7 +52,6 @@ async def post_deal(update: Update, context: ContextTypes.DEFAULT_TYPE, category
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=buttons)
     await context.bot.send_message(chat_id=CHANNEL_USERNAME, text=msg, parse_mode="Markdown", reply_markup=buttons)
 
-# PHOTO HANDLER
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -63,7 +63,6 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_photo(chat_id=CHANNEL_USERNAME, photo=update.message.photo[-1].file_id, caption=msg, parse_mode="Markdown", reply_markup=buttons)
 
-# CATEGORY COMMANDS
 async def adddeal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await post_deal(update, context, "General")
 
@@ -76,14 +75,26 @@ async def fashion(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def grocery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await post_deal(update, context, "Grocery")
 
-# MAIN
-if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("adddeal", adddeal))
-    app.add_handler(CommandHandler("electronics", electronics))
-    app.add_handler(CommandHandler("fashion", fashion))
-    app.add_handler(CommandHandler("grocery", grocery))
-    app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+def run_bot():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("adddeal", adddeal))
+    application.add_handler(CommandHandler("electronics", electronics))
+    application.add_handler(CommandHandler("fashion", fashion))
+    application.add_handler(CommandHandler("grocery", grocery))
+    application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
     print("Bot is running...")
-    app.run_polling()
+    application.run_polling()
+
+threading.Thread(target=run_bot).start()
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "LootLelo bot is running on Render!"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+    
